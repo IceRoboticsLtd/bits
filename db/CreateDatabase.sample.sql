@@ -923,7 +923,7 @@ CREATE PROCEDURE `SP_OUTPUT_SCHEMA` (
 			SET @query = CONCAT('
 				SELECT parent.pk_SchemaID, parent.SchemaKey, parent.SchemaValue
 				FROM `tbl_schema` child
-				INNER JOIN `tbl_schema` p ON child.fk_ParentID = parent.fk_ParentID
+				INNER JOIN `tbl_schema` parent ON child.fk_ParentID = parent.fk_ParentID
 				WHERE child.pk_SchemaID = ', @childID, '
 				AND parent.pk_SchemaID <> ', @childID
 			);
