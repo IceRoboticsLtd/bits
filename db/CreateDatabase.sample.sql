@@ -564,6 +564,8 @@ CREATE PROCEDURE `SP_INSERT_INTO_TABLE` (
 	BEGIN
 		SET NAMES utf8;
 		SET FOREIGN_KEY_CHECKS = 0;	-- off
+		SET @databaseName = DATABASE_NAME;
+		SET @entityName = ENTITY_NAME;		
 		SET @tableEntityName = CONCAT('tbl_', LOWER(@entityName));
 		SET @fieldPrimaryKeyEntityID = CONCAT('pk_', @entityName, 'ID');
 		SET @valueFieldPrimaryKeyEntityID = PRIMARY_KEY_ENTITY_ID;
@@ -576,7 +578,7 @@ CREATE PROCEDURE `SP_INSERT_INTO_TABLE` (
 		SET @valueTimeStampUpdated = CAST('0000-00-00 00:00:00' AS DATETIME);
 		START TRANSACTION;
 			SET @query = CONCAT("
-				INSERT INTO `",@gDatabaseName,"`.`",@tableEntityName,"` 
+				INSERT INTO `",@databaseName,"`.`",@tableEntityName,"` 
 				VALUES(
 				 ",@valueFieldPrimaryKeyEntityID,",
 				 ",@valueFieldForeignKeyParentID,",
