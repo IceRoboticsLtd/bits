@@ -400,17 +400,15 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
-		
 		-- Check whether the transaction was successful
 		IF _code = '00000' THEN
 			GET DIAGNOSTICS _rows = ROW_COUNT;
-			SET _result = CONCAT('insert succeeded, row count = ',_rows);
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
 		ELSE
-			SET _result = CONCAT('insert failed, error = ',_code,', message = ',_msg);
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
 		END IF;
 		-- Say what happened
 		SELECT _result;
-		
 		-- Skip if entity is itself the schema
 		IF(@entityIsSchemaEntity) THEN
 			SELECT CONCAT('Entity is Schema Entity') AS SP_CREATE_TABLES_AND_VIEWS;
@@ -418,9 +416,6 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 		ELSE
 			CALL SP_ADD_TYPES_TO_SCHEMA(@gDatabaseName, @entityName, @entityType, @viewEntityName, @viewKindOfEntityName, @tableEntityName, @fieldPrimaryKeyEntityID, @schemaTypesID);   /* IT APPEARS THIS CALL IS NOT SUCCESSFUL !! */
 		END IF;
-		
-		
-		
 		START TRANSACTION;
 			-- Alter kind of entity table to add indices
 			SET @query = CONCAT('
@@ -431,10 +426,15 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
-		
-		
-		
-		
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;	
 		-- ENTITY
 		SET @entityType = 'Entity';
 		START TRANSACTION;
@@ -495,6 +495,15 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;		
 		-- Skip if entity is itself the schema
 		IF(@entityIsSchemaEntity) THEN
 			SELECT CONCAT('Entity is Schema Entity') AS SP_CREATE_TABLES_AND_VIEWS;
@@ -512,6 +521,15 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;	
 		SET FOREIGN_KEY_CHECKS = 1;	-- on
 	END; 
 $$
@@ -535,19 +553,17 @@ CREATE PROCEDURE `SP_MAIN` (
 		IN `ENTITY_NAME` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
-		-- Start of Error handling
-		DECLARE table_not_found CONDITION FOR 1051;
-		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
-		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_MAIN - Table not found';
-		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_MAIN - Duplicate keys error encountered';
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+		-- Declare variables to hold diagnostics area information
+		DECLARE _code CHAR(5) DEFAULT '00000';
+		DECLARE _msg TEXT;
+		DECLARE _rows INT;
+		DECLARE _result TEXT;
+		-- Declare exception handler for failed insert
+		DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
 			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("SP_MAIN - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
-			END;
-		-- End of error handling	
+			  GET DIAGNOSTICS CONDITION 1
+				_code = RETURNED_SQLSTATE, _msg = MESSAGE_TEXT;
+			END;	
 	    SET @entityName = ENTITY_NAME;
 		-- Create the table that will contain all entities, for which individual tables will be created later on
 		CALL `bits`.SP_CREATE_TABLES_AND_VIEWS(@entityName);
@@ -589,19 +605,17 @@ CREATE PROCEDURE `SP_INSERT_INTO_TABLE` (
 		IN `ENTITY_VALUE` varchar(5000) CHARACTER SET 'utf8'
 	)
 	BEGIN
-		-- Start of Error handling
-		DECLARE table_not_found CONDITION FOR 1051;
-		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
-		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_INSERT_INTO_TABLE - Table not found';
-		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_INSERT_INTO_TABLE - Duplicate keys error encountered';
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+		-- Declare variables to hold diagnostics area information
+		DECLARE _code CHAR(5) DEFAULT '00000';
+		DECLARE _msg TEXT;
+		DECLARE _rows INT;
+		DECLARE _result TEXT;
+		-- Declare exception handler for failed insert
+		DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
 			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("SP_INSERT_INTO_TABLE - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
+			  GET DIAGNOSTICS CONDITION 1
+				_code = RETURNED_SQLSTATE, _msg = MESSAGE_TEXT;
 			END;
-		-- End of error handling
 		SET NAMES utf8;
 		SET FOREIGN_KEY_CHECKS = 0;	-- off
 		SET @databaseName = DATABASE_NAME;
@@ -634,6 +648,15 @@ CREATE PROCEDURE `SP_INSERT_INTO_TABLE` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;			
 		SET FOREIGN_KEY_CHECKS = 1;	-- on
 	END; 
 $$
@@ -724,19 +747,6 @@ CREATE PROCEDURE `SP_INSERT_ARRAY_OF_VALUES` (
 		IN `VALUE_FIELD_ENTITY_VALUE_ARRAY_SEPARATOR` varchar(1) CHARACTER SET 'utf8'
 	)
 	BEGIN
-		-- Start of Error handling
-		DECLARE table_not_found CONDITION FOR 1051;
-		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
-		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_INSERT_ARRAY_OF_VALUES - Table not found';
-		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_INSERT_ARRAY_OF_VALUES - Duplicate keys error encountered';
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
-			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("SP_INSERT_ARRAY_OF_VALUES - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
-			END;
-		-- End of error handling
 		SET @separator = VALUE_FIELD_ENTITY_VALUE_ARRAY_SEPARATOR;
         SET @separatorLength = CHAR_LENGTH(@separator);
 		SET @entityName = ENTITY_NAME;
@@ -790,20 +800,7 @@ CREATE PROCEDURE `SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS` (
 		IN `KEY_VALUE` varchar(255) CHARACTER SET 'utf8', 
 		IN `FIELD_VALUE_NAME` varchar(255) CHARACTER SET 'utf8'
 	)
-	BEGIN
-		-- Start of Error handling
-		DECLARE table_not_found CONDITION FOR 1051;
-		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
-		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS - Table not found';
-		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS - Duplicate keys error encountered';
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
-			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
-			END;
-		-- End of error handling	
+	BEGIN	
 		DECLARE findFinished INTEGER DEFAULT 0;
 		DECLARE fieldValue varchar(5000) DEFAULT "";
 		-- Declare cursor for field value
@@ -857,19 +854,17 @@ CREATE PROCEDURE `SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS` (
 		IN `LINKED_ENTITIES_NAMES_SEPARATOR` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
-		-- Start of Error handling
-		DECLARE table_not_found CONDITION FOR 1051;
-		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
-		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS - Table not found';
-		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS - Duplicate keys error encountered';
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+		-- Declare variables to hold diagnostics area information
+		DECLARE _code CHAR(5) DEFAULT '00000';
+		DECLARE _msg TEXT;
+		DECLARE _rows INT;
+		DECLARE _result TEXT;
+		-- Declare exception handler for failed insert
+		DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
 			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
-			END;
-		-- End of error handling	
+			  GET DIAGNOSTICS CONDITION 1
+				_code = RETURNED_SQLSTATE, _msg = MESSAGE_TEXT;
+			END;	
 		SET @linkedEntitiesNames = LINKED_ENTITIES_NAMES;
 		SET @separator = LINKED_ENTITIES_NAMES_SEPARATOR;
 		SET @firstEntityName = SUBSTRING_INDEX(@linkedEntitiesNames, @separator, 1);
@@ -941,6 +936,15 @@ CREATE PROCEDURE `SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;			
 		SET FOREIGN_KEY_CHECKS = 1;	-- on
 	END; 
 $$
@@ -958,15 +962,6 @@ CREATE FUNCTION `FN_SPLIT_STRING` (
 	)
 	RETURNS VARCHAR(255)
 	BEGIN
-		-- Start of Error handling
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
-			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("FN_SPLIT_STRING - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
-			END;
-		-- End of error handling
 		RETURN REPLACE(SUBSTRING(SUBSTRING_INDEX(str, delim, pos),
 		LENGTH(SUBSTRING_INDEX(str, delim, pos -1)) + 1),
 		delim, '');
@@ -984,19 +979,6 @@ CREATE PROCEDURE `SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS` (
 		IN `LINKED_ENTITIES_NAMES_SEPARATOR` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
-		-- Start of Error handling
-		DECLARE table_not_found CONDITION FOR 1051;
-		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
-		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS - Table not found';
-		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS - Duplicate keys error encountered';
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
-			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
-			END;
-		-- End of error handling
 		SET @multipleLinkedEntitiesNames = MULTIPLE_LINKED_ENTITIES_NAMES;
 		SET @linkedEntitiesNamesSeparator = LINKED_ENTITIES_NAMES_SEPARATOR;
 		SET @counter = 1;
@@ -1035,19 +1017,17 @@ CREATE PROCEDURE `SP_UPDATE_SCHEMA` (
 		IN `KIND_OF_SCHEMA` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
-		-- Start of Error handling
-		DECLARE table_not_found CONDITION FOR 1051;
-		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
-		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_UPDATE_SCHEMA - Table not found';
-		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_UPDATE_SCHEMA - Duplicate keys error encountered';
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+		-- Declare variables to hold diagnostics area information
+		DECLARE _code CHAR(5) DEFAULT '00000';
+		DECLARE _msg TEXT;
+		DECLARE _rows INT;
+		DECLARE _result TEXT;
+		-- Declare exception handler for failed insert
+		DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
 			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("SP_UPDATE_SCHEMA - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
-			END;
-		-- End of error handling	
+			  GET DIAGNOSTICS CONDITION 1
+				_code = RETURNED_SQLSTATE, _msg = MESSAGE_TEXT;
+			END;	
 		SET NAMES utf8;
 		SET FOREIGN_KEY_CHECKS = 0;	-- off
 		-- LINKED ENTITIES
@@ -1071,6 +1051,15 @@ CREATE PROCEDURE `SP_UPDATE_SCHEMA` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;			
 		SET FOREIGN_KEY_CHECKS = 1;	-- on	
 	END; 
 $$
@@ -1087,19 +1076,17 @@ CREATE PROCEDURE `SP_OUTPUT_SCHEMA` (
 		IN `SCHEMA_ID` int(11)
 	)
 	BEGIN
-		-- Start of Error handling
-		DECLARE table_not_found CONDITION FOR 1051;
-		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
-		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_OUTPUT_SCHEMA - Table not found';
-		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_OUTPUT_SCHEMA - Duplicate keys error encountered';
-		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+		-- Declare variables to hold diagnostics area information
+		DECLARE _code CHAR(5) DEFAULT '00000';
+		DECLARE _msg TEXT;
+		DECLARE _rows INT;
+		DECLARE _result TEXT;
+		-- Declare exception handler for failed insert
+		DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
 			BEGIN
-				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
-				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-				SET @full_error = CONCAT("SP_OUTPUT_SCHEMA - ERROR ", @errno, " (", @sqlstate, "): ", @text);
-				SELECT @full_error;
-			END;
-		-- End of error handling	
+			  GET DIAGNOSTICS CONDITION 1
+				_code = RETURNED_SQLSTATE, _msg = MESSAGE_TEXT;
+			END;	
 		SET @childID = SCHEMA_ID;
 		SET NAMES utf8;
 		SET FOREIGN_KEY_CHECKS = 0;	-- off
@@ -1120,12 +1107,19 @@ CREATE PROCEDURE `SP_OUTPUT_SCHEMA` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;			
 		SET FOREIGN_KEY_CHECKS = 1;	-- on
 	END; 
 $$
 DELIMITER ;
-
-
 
 -- Call the output schema stored procedure
 CALL SP_OUTPUT_SCHEMA(1);
