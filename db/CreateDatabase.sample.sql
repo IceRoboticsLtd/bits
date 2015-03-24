@@ -14,41 +14,7 @@ SET @gDatabaseLanguage = 'English'; -- 'English' is mandatory
 DROP DATABASE IF EXISTS `bits`;
 CREATE DATABASE IF NOT EXISTS `bits` CHARACTER SET 'utf8' COLLATE 'utf8_bin';
 USE bits; -- from now on all refers to this database
--- Name: SP_UPDATE_SCHEMA
--- Description: A stored procedure that updates the schema table,
--- for creation of a (JSON) Schema from SQL later on
-DELIMITER $$
-DROP PROCEDURE IF EXISTS `SP_UPDATE_SCHEMA`;
-CREATE PROCEDURE `SP_UPDATE_SCHEMA` (
-		IN `SCHEMA_ID` int(11), 
-		IN `PARENT_ID` int(11),  
-		IN `SCHEMA_KEY` varchar(255) CHARACTER SET 'utf8',  
-		IN `SCHEMA_VALUE` varchar(5000) CHARACTER SET 'utf8',  
-		IN `KIND_OF_SCHEMA` varchar(255) CHARACTER SET 'utf8'
-	)
-	BEGIN
-	/*
-		-- Set names
-		SET NAMES utf8;
-		-- Set foreign key checks to off
-		SET FOREIGN_KEY_CHECKS = 0;	
-		-- LINKED ENTITIES
-		START TRANSACTION;
-			-- TEMP: placeholder, still to do
-			SET @query = CONCAT('
-				SELECT * FROM DUAL; 
-			');
-			SELECT CONCAT(@query) AS Message;
-			PREPARE stmt FROM @query;
-			EXECUTE stmt;
-			DEALLOCATE PREPARE stmt;
-		COMMIT;
-		-- Set foreign key checks to on
-		SET FOREIGN_KEY_CHECKS = 1;	
-	*/
-	END; 
-$$
-DELIMITER ;
+
 -- Create stored procedure that gets and returns a required field value
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `SP_GET_FIELD_VALUE`;
@@ -67,25 +33,26 @@ CREATE PROCEDURE `SP_GET_FIELD_VALUE` (
 	BEGIN
 		-- Keep DECLARE statements outside of START TRANSACTION...COMMIT
 		DECLARE _tableEntityName VARCHAR(255) DEFAULT TABLE_ENTITY_NAME;
-		-- OLD: SET @tableEntityName = TABLE_ENTITY_NAME;
 		DECLARE _requiredFieldName VARCHAR(255) DEFAULT REQUIRED_FIELD_NAME;
-		-- OLD: SET @requiredFieldName = REQUIRED_FIELD_NAME;
-		-- SET @requiredFieldValue = REQUIRED_FIELD_VALUE;
 		DECLARE _whereFieldName VARCHAR(255) DEFAULT WHERE_FIELD_NAME;
-		-- OLD: SET @whereFieldName = WHERE_FIELD_NAME;
 		DECLARE _whereOperator VARCHAR(255) DEFAULT WHERE_OPERATOR;
-		-- OLD: SET @whereOperator = WHERE_OPERATOR;
 		DECLARE _whereValue VARCHAR(255) DEFAULT WHERE_VALUE;
-		-- OLD: SET @whereValue = WHERE_VALUE;
 		DECLARE _andOrWhere VARCHAR(255) DEFAULT AND_OR_WHERE;
-		-- OLD: SET @andOrWhere = AND_OR_WHERE;
 		DECLARE _andOrWhereFieldName VARCHAR(255) DEFAULT AND_OR_WHERE_FIELD_NAME;
-		-- OLD: SET @andOrWhereFieldName = AND_OR_WHERE_FIELD_NAME;
-		DECLARE _andOrWhereOperator VARCHAR(255) DEFAULT AND_OR_WHERE_OPERATOR;
-		-- OLD: SET @andOrWhereOperator = AND_OR_WHERE_OPERATOR;
+		DECLARE _andOrWhereOperator VARCHAR(255) DEFAULT AND_OR_WHERE_OPERATOR;	
 		DECLARE _andOrWhereValue VARCHAR(255) DEFAULT AND_OR_WHERE_VALUE;
-		-- OLD: SET @andOrWhereValue = AND_OR_WHERE_VALUE;
-		DECLARE _query VARCHAR(255) DEFAULT '';
+		DECLARE _query VARCHAR(255) DEFAULT '';	
+		-- Declare variables to hold diagnostics area information
+		DECLARE _code CHAR(5) DEFAULT '00000';
+		DECLARE _msg TEXT;
+		DECLARE _rows INT;
+		DECLARE _result TEXT;
+		-- Declare exception handler for failed insert
+		DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+			BEGIN
+			  GET DIAGNOSTICS CONDITION 1
+				_code = RETURNED_SQLSTATE, _msg = MESSAGE_TEXT;
+			END;		
 		START TRANSACTION;
 			SELECT CONCAT('Getting field value for: ', _requiredFieldName) AS SP_GET_FIELD_VALUE;
 			-- Select required field
@@ -112,9 +79,19 @@ CREATE PROCEDURE `SP_GET_FIELD_VALUE` (
 			SELECT @REQUIRED_FIELD_VALUE AS SP_GET_FIELD_VALUE; -- this works !!!
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('transaction succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('transaction failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;
 	END; 
 $$
 DELIMITER ;
+
 -- Create stored procedure to add keys to schema
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `SP_ADD_KEYS_TO_TYPES_IN_SCHEMA`;
@@ -138,6 +115,7 @@ CREATE PROCEDURE `SP_ADD_KEYS_TO_TYPES_IN_SCHEMA` (
 		DECLARE _tableEntityName VARCHAR(255) DEFAULT TABLE_ENTITY_NAME;
 		DECLARE _fieldPrimaryKeyEntityID VARCHAR(255) DEFAULT FIELD_PRIMARY_KEY_ENTITY_ID;
 		DECLARE _schemaKeysID INT(11) DEFAULT SCHEMA_KEYS_ID;
+		DECLARE _schemaPrimaryKeyID INT(11); -- NEW, added by wvh
 		DECLARE _valueFieldPrimaryKeyEntityID INT(11) DEFAULT 0; -- auto-generated
 		DECLARE _valueFieldForeignKeyParentID INT(11) DEFAULT 0;
 		DECLARE _entityKey VARCHAR(255) DEFAULT '';
@@ -192,7 +170,7 @@ CREATE PROCEDURE `SP_ADD_KEYS_TO_TYPES_IN_SCHEMA` (
 			_andOrWhereOperator, 
 			_andOrWhereValue
 		);
-/*		
+		
 		
 		SET _requiredFieldValue = @REQUIRED_FIELD_VALUE;
 		SET _schemaPrimaryKeyID = _requiredFieldValue;	
@@ -204,11 +182,12 @@ CREATE PROCEDURE `SP_ADD_KEYS_TO_TYPES_IN_SCHEMA` (
 		CALL `SP_INSERT_INTO_TABLE` (_databaseName, _entityName, _valueFieldPrimaryKeyEntityID, _valueFieldForeignKeyParentID, _entityKey, _entityValue);		
 		
 		-- More ...
-*/
+
 
 	END; 
 $$
 DELIMITER ;
+
 -- Create stored procedure to add types to schema
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `SP_ADD_TYPES_TO_SCHEMA`;
@@ -313,6 +292,7 @@ CREATE PROCEDURE `SP_ADD_TYPES_TO_SCHEMA` (
 	END; 
 $$
 DELIMITER ;
+
 -- Name: sp_CreateTablesAndViews
 -- Description: A stored procedure that creates tables and views
 -- Parameters:
@@ -326,6 +306,17 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 		IN `ENTITY_NAME` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
+		-- Declare variables to hold diagnostics area information
+		DECLARE _code CHAR(5) DEFAULT '00000';
+		DECLARE _msg TEXT;
+		DECLARE _rows INT;
+		DECLARE _result TEXT;
+		-- Declare exception handler for failed insert
+		DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+			BEGIN
+			  GET DIAGNOSTICS CONDITION 1
+				_code = RETURNED_SQLSTATE, _msg = MESSAGE_TEXT;
+			END;
 		SET @entityName = ENTITY_NAME;
 		SET @tableEntityName = CONCAT('tbl_', LOWER(@entityName));
 		SET @fieldPrimaryKeyEntityID = CONCAT('pk_', @entityName, 'ID');
@@ -409,13 +400,27 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		
+		-- Check whether the transaction was successful
+		IF _code = '00000' THEN
+			GET DIAGNOSTICS _rows = ROW_COUNT;
+			SET _result = CONCAT('insert succeeded, row count = ',_rows);
+		ELSE
+			SET _result = CONCAT('insert failed, error = ',_code,', message = ',_msg);
+		END IF;
+		-- Say what happened
+		SELECT _result;
+		
 		-- Skip if entity is itself the schema
 		IF(@entityIsSchemaEntity) THEN
 			SELECT CONCAT('Entity is Schema Entity') AS SP_CREATE_TABLES_AND_VIEWS;
 			-- Continue
 		ELSE
-			CALL SP_ADD_TYPES_TO_SCHEMA(@gDatabaseName, @entityName, @entityType, @viewEntityName, @viewKindOfEntityName, @tableEntityName, @fieldPrimaryKeyEntityID, @schemaTypesID);
+			CALL SP_ADD_TYPES_TO_SCHEMA(@gDatabaseName, @entityName, @entityType, @viewEntityName, @viewKindOfEntityName, @tableEntityName, @fieldPrimaryKeyEntityID, @schemaTypesID);   /* IT APPEARS THIS CALL IS NOT SUCCESSFUL !! */
 		END IF;
+		
+		
+		
 		START TRANSACTION;
 			-- Alter kind of entity table to add indices
 			SET @query = CONCAT('
@@ -426,6 +431,10 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 			EXECUTE stmt;
 			DEALLOCATE PREPARE stmt;
 		COMMIT;
+		
+		
+		
+		
 		-- ENTITY
 		SET @entityType = 'Entity';
 		START TRANSACTION;
@@ -507,6 +516,9 @@ CREATE PROCEDURE `SP_CREATE_TABLES_AND_VIEWS` (
 	END; 
 $$
 DELIMITER ;
+
+
+
 -- Name: SP_MAIN
 -- Description: A stored procedure that contains the main procedures, 
 -- run this first after having created the empty database and required stored procedures
@@ -523,6 +535,19 @@ CREATE PROCEDURE `SP_MAIN` (
 		IN `ENTITY_NAME` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
+		-- Start of Error handling
+		DECLARE table_not_found CONDITION FOR 1051;
+		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
+		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_MAIN - Table not found';
+		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_MAIN - Duplicate keys error encountered';
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("SP_MAIN - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling	
 	    SET @entityName = ENTITY_NAME;
 		-- Create the table that will contain all entities, for which individual tables will be created later on
 		CALL `bits`.SP_CREATE_TABLES_AND_VIEWS(@entityName);
@@ -550,7 +575,9 @@ CREATE PROCEDURE `SP_MAIN` (
 	END; 
 $$
 DELIMITER ;	
--- Create procedure insert into table
+
+
+-- Create procedure insert into table: THIS ONE WORKS OK!
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `SP_INSERT_INTO_TABLE`;
 CREATE PROCEDURE `SP_INSERT_INTO_TABLE` (
@@ -562,6 +589,19 @@ CREATE PROCEDURE `SP_INSERT_INTO_TABLE` (
 		IN `ENTITY_VALUE` varchar(5000) CHARACTER SET 'utf8'
 	)
 	BEGIN
+		-- Start of Error handling
+		DECLARE table_not_found CONDITION FOR 1051;
+		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
+		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_INSERT_INTO_TABLE - Table not found';
+		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_INSERT_INTO_TABLE - Duplicate keys error encountered';
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("SP_INSERT_INTO_TABLE - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling
 		SET NAMES utf8;
 		SET FOREIGN_KEY_CHECKS = 0;	-- off
 		SET @databaseName = DATABASE_NAME;
@@ -598,25 +638,36 @@ CREATE PROCEDURE `SP_INSERT_INTO_TABLE` (
 	END; 
 $$
 DELIMITER ;
+
+
 -- Call stored procedure main, providing it with the database name and entity name
 SET @entityName = 'Schema';
-CALL SP_MAIN(@gDatabaseName, @entityName);
+CALL `SP_MAIN` (@gDatabaseName, @entityName);
+
+-- == ALL GOOD UP TO HERE
+
 -- Call stored procedure insert into table for: domains
 SET @entityName = 'Schema';
-Set @valueFieldPrimaryKeyEntityID = 1;
-Set @valueFieldForeignKeyParentID = @valueFieldPrimaryKeyEntityID; -- links to itself
+SET @valueFieldPrimaryKeyEntityID = 1;
+SET @valueFieldForeignKeyParentID = @valueFieldPrimaryKeyEntityID; -- links to itself
 SET @entityKey = '"domains"';
 SET @entityValue = '{}';
 SET @schemaDomainsID = @valueFieldPrimaryKeyEntityID;
 CALL `SP_INSERT_INTO_TABLE` (@gDatabaseName, @entityName, @valueFieldPrimaryKeyEntityID, @valueFieldForeignKeyParentID, @entityKey, @entityValue);
+
+-- == ALL GOOD UP TO HERE
+
 -- Call stored procedure insert into table for: database
 SET @entityName = 'Schema';
-Set @valueFieldPrimaryKeyEntityID = @valueFieldPrimaryKeyEntityID + 1;
-Set @valueFieldForeignKeyParentID = @schemaDomainsID; -- links to domains
+SET @valueFieldPrimaryKeyEntityID = @valueFieldPrimaryKeyEntityID + 1;
+SET @valueFieldForeignKeyParentID = @schemaDomainsID; -- links to domains
 SET @entityKey = CONCAT('"', LOWER(@gDatabaseName), '"');
 SET @entityValue = '{}';
 SET @schemaDatabaseID = @valueFieldPrimaryKeyEntityID;
 CALL `SP_INSERT_INTO_TABLE` (@gDatabaseName, @entityName, @valueFieldPrimaryKeyEntityID, @valueFieldForeignKeyParentID, @entityKey, @entityValue);
+
+-- == ALL GOOD UP TO HERE
+
 -- Call stored procedure insert into table for: schema name
 SET @entityName = 'Schema';
 Set @valueFieldPrimaryKeyEntityID = @valueFieldPrimaryKeyEntityID + 1;
@@ -624,6 +675,9 @@ Set @valueFieldForeignKeyParentID = @schemaDatabaseID; -- links to database
 SET @entityKey = '"schema_name"';
 SET @entityValue = CONCAT('"', LOWER(@gDatabaseName), '"');
 CALL `SP_INSERT_INTO_TABLE` (@gDatabaseName, @entityName, @valueFieldPrimaryKeyEntityID, @valueFieldForeignKeyParentID, @entityKey, @entityValue);
+
+-- == ALL GOOD UP TO HERE
+
 -- Call stored procedure insert into table for: types
 SET @entityName = 'Schema';
 Set @valueFieldPrimaryKeyEntityID = @valueFieldPrimaryKeyEntityID + 1;
@@ -632,9 +686,22 @@ SET @entityKey = '"types"';
 SET @entityValue = '{}';
 SET @schemaTypesID = @valueFieldPrimaryKeyEntityID;
 CALL `SP_INSERT_INTO_TABLE` (@gDatabaseName, @entityName, @valueFieldPrimaryKeyEntityID, @valueFieldForeignKeyParentID, @entityKey, @entityValue);
+
+-- == ALL GOOD UP TO HERE
+
 -- Call stored procedure main, providing it with the database name and entity name
 SET @entityName = 'Language';
-CALL SP_MAIN(@gDatabaseName, @entityName);
+CALL `SP_MAIN` (@gDatabaseName, @entityName);
+
+-- == ERROR: tbl_language is not created !!!
+-- [SQL] CALL `SP_MAIN` (@gDatabaseName, @entityName);
+-- [Err] 1452 - Cannot add or update a child row: a foreign key constraint fails (`bits`.`tbl_schema`, CONSTRAINT `tbl_schema_ibfk_2` FOREIGN KEY (`fk_KindOfSchemaID`) REFERENCES `tbl_kind_of_schema` (`pk_KindOfSchemaID`))
+-- THIS MOST LIKELY IS A RESULT OF THE SP_ADD_TYPES_TO_SCHEMA NOT WORKING OK YET
+
+
+
+
+
 -- Call stored procedure insert into table for: English
 SET @entityName = 'Language';
 Set @valueFieldPrimaryKeyEntityID = 1;
@@ -642,6 +709,10 @@ Set @valueFieldForeignKeyParentID = 1; -- links to itself
 SET @entityKey = 'Language';
 SET @entityValue = @gDatabaseLanguage;
 CALL `SP_INSERT_INTO_TABLE` (@gDatabaseName, @entityName, @valueFieldPrimaryKeyEntityID, @valueFieldForeignKeyParentID, @entityKey, @entityValue);
+
+
+
+
 -- Create stored procedure that inserts an array of values
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `SP_INSERT_ARRAY_OF_VALUES`;
@@ -653,6 +724,19 @@ CREATE PROCEDURE `SP_INSERT_ARRAY_OF_VALUES` (
 		IN `VALUE_FIELD_ENTITY_VALUE_ARRAY_SEPARATOR` varchar(1) CHARACTER SET 'utf8'
 	)
 	BEGIN
+		-- Start of Error handling
+		DECLARE table_not_found CONDITION FOR 1051;
+		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
+		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_INSERT_ARRAY_OF_VALUES - Table not found';
+		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_INSERT_ARRAY_OF_VALUES - Duplicate keys error encountered';
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("SP_INSERT_ARRAY_OF_VALUES - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling
 		SET @separator = VALUE_FIELD_ENTITY_VALUE_ARRAY_SEPARATOR;
         SET @separatorLength = CHAR_LENGTH(@separator);
 		SET @entityName = ENTITY_NAME;
@@ -681,6 +765,9 @@ CREATE PROCEDURE `SP_INSERT_ARRAY_OF_VALUES` (
 	END; 
 $$
 DELIMITER ;
+
+
+
 -- Call stored procedure main, providing it with the database name and entity name	
 SET @entityName = 'Entity';
 CALL SP_MAIN(@gDatabaseName, @entityName);
@@ -688,7 +775,11 @@ CALL SP_MAIN(@gDatabaseName, @entityName);
 SET @valueFieldEntityKey = 'Entity';
 SET @valueFieldEntityValueArray = @gDatabaseSimpleEntities;
 SET @valueFieldEntityValueArraySeparator = ',';
-CALL `bits`.SP_INSERT_ARRAY_OF_VALUES(@gDatabaseName, @entityName, @valueFieldEntityKey, @valueFieldEntityValueArray, @valueFieldEntityValueArraySeparator);			
+CALL `bits`.SP_INSERT_ARRAY_OF_VALUES(@gDatabaseName, @entityName, @valueFieldEntityKey, @valueFieldEntityValueArray, @valueFieldEntityValueArraySeparator);	
+
+
+
+		
 -- Create a stored procedure that creates tables based on the entity names stored in tbl_entity.EntityValue
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS`;
@@ -700,6 +791,19 @@ CREATE PROCEDURE `SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS` (
 		IN `FIELD_VALUE_NAME` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
+		-- Start of Error handling
+		DECLARE table_not_found CONDITION FOR 1051;
+		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
+		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS - Table not found';
+		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS - Duplicate keys error encountered';
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling	
 		DECLARE findFinished INTEGER DEFAULT 0;
 		DECLARE fieldValue varchar(5000) DEFAULT "";
 		-- Declare cursor for field value
@@ -730,6 +834,10 @@ CREATE PROCEDURE `SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS` (
 	END; 
 $$
 DELIMITER ;
+
+
+
+
 -- Call stored procedure loop field call create tables and views
 SET @tableName = LOWER('tbl_entity');
 SET @fieldKeyName = 'EntityKey';
@@ -737,6 +845,10 @@ SET @keyValue = 'Entity';
 SET @fieldValueName = 'EntityValue';
 CALL SP_LOOP_FIELD_CALL_CREATE_TABLES_AND_VIEWS(@gDatabaseName, @tableName, @fieldKeyName, @keyValue, @fieldValueName);
 -- By now all simple entity tables and views should have been created (excluding link tables)
+
+
+
+
 -- Create procedure create link tables
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS`;
@@ -745,6 +857,19 @@ CREATE PROCEDURE `SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS` (
 		IN `LINKED_ENTITIES_NAMES_SEPARATOR` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
+		-- Start of Error handling
+		DECLARE table_not_found CONDITION FOR 1051;
+		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
+		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS - Table not found';
+		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS - Duplicate keys error encountered';
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling	
 		SET @linkedEntitiesNames = LINKED_ENTITIES_NAMES;
 		SET @separator = LINKED_ENTITIES_NAMES_SEPARATOR;
 		SET @firstEntityName = SUBSTRING_INDEX(@linkedEntitiesNames, @separator, 1);
@@ -820,6 +945,9 @@ CREATE PROCEDURE `SP_CREATE_LINKED_TABLES_AND_LINKED_VIEWS` (
 	END; 
 $$
 DELIMITER ;
+
+
+
 -- Create the split string function
 DELIMITER $$
 DROP FUNCTION IF EXISTS `FN_SPLIT_STRING`;
@@ -830,12 +958,24 @@ CREATE FUNCTION `FN_SPLIT_STRING` (
 	)
 	RETURNS VARCHAR(255)
 	BEGIN
+		-- Start of Error handling
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("FN_SPLIT_STRING - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling
 		RETURN REPLACE(SUBSTRING(SUBSTRING_INDEX(str, delim, pos),
 		LENGTH(SUBSTRING_INDEX(str, delim, pos -1)) + 1),
 		delim, '');
 	END; 
 $$
 DELIMITER ;
+
+
+
 -- Create procedure create multiple linked entities tables, for each entry in @gDatabaseSimpleLinkedEntities
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS`;
@@ -844,6 +984,19 @@ CREATE PROCEDURE `SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS` (
 		IN `LINKED_ENTITIES_NAMES_SEPARATOR` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
+		-- Start of Error handling
+		DECLARE table_not_found CONDITION FOR 1051;
+		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
+		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS - Table not found';
+		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS - Duplicate keys error encountered';
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling
 		SET @multipleLinkedEntitiesNames = MULTIPLE_LINKED_ENTITIES_NAMES;
 		SET @linkedEntitiesNamesSeparator = LINKED_ENTITIES_NAMES_SEPARATOR;
 		SET @counter = 1;
@@ -862,6 +1015,9 @@ CREATE PROCEDURE `SP_CREATE_MULTIPLE_LINKED_TABLES_AND_LINKED_VIEWS` (
 	END; 
 $$
 DELIMITER ;
+
+
+
 -- Call procedure create multiple linked entities tables, for complete @gDatabaseSimpleLinkedEntities and @gDatabaseSimpleLinkedEntitiesSeparator
 SET @multipleLinkedEntitiesNames = @gDatabaseSimpleLinkedEntities;
 SET @linkedEntitiesNamesSeparator = @gDatabaseSimpleLinkedEntitiesSeparator;
@@ -879,6 +1035,19 @@ CREATE PROCEDURE `SP_UPDATE_SCHEMA` (
 		IN `KIND_OF_SCHEMA` varchar(255) CHARACTER SET 'utf8'
 	)
 	BEGIN
+		-- Start of Error handling
+		DECLARE table_not_found CONDITION FOR 1051;
+		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
+		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_UPDATE_SCHEMA - Table not found';
+		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_UPDATE_SCHEMA - Duplicate keys error encountered';
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("SP_UPDATE_SCHEMA - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling	
 		SET NAMES utf8;
 		SET FOREIGN_KEY_CHECKS = 0;	-- off
 		-- LINKED ENTITIES
@@ -906,6 +1075,10 @@ CREATE PROCEDURE `SP_UPDATE_SCHEMA` (
 	END; 
 $$
 DELIMITER ;
+
+
+
+
 -- Create procedure output (e.g. JSON) schema, that outputs a schema (in e.g. JSON) from the schema table
 -- using parent-child relationship querying
 DELIMITER $$
@@ -914,6 +1087,19 @@ CREATE PROCEDURE `SP_OUTPUT_SCHEMA` (
 		IN `SCHEMA_ID` int(11)
 	)
 	BEGIN
+		-- Start of Error handling
+		DECLARE table_not_found CONDITION FOR 1051;
+		DECLARE duplicate_keys_encountered CONDITION FOR 1062;
+		DECLARE EXIT HANDLER FOR table_not_found SELECT 'SP_OUTPUT_SCHEMA - Table not found';
+		DECLARE EXIT HANDLER FOR duplicate_keys_encountered SELECT 'SP_OUTPUT_SCHEMA - Duplicate keys error encountered';
+		DECLARE EXIT HANDLER FOR SQLEXCEPTION
+			BEGIN
+				GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE,
+				 @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
+				SET @full_error = CONCAT("SP_OUTPUT_SCHEMA - ERROR ", @errno, " (", @sqlstate, "): ", @text);
+				SELECT @full_error;
+			END;
+		-- End of error handling	
 		SET @childID = SCHEMA_ID;
 		SET NAMES utf8;
 		SET FOREIGN_KEY_CHECKS = 0;	-- off
@@ -938,5 +1124,8 @@ CREATE PROCEDURE `SP_OUTPUT_SCHEMA` (
 	END; 
 $$
 DELIMITER ;
+
+
+
 -- Call the output schema stored procedure
 CALL SP_OUTPUT_SCHEMA(1);
