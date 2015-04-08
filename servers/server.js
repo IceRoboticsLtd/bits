@@ -71,14 +71,14 @@ var managePreparationForShutdown = function(callback) {
   // perform all the cleanup and other operations needed prior to shutdown,
   // but do not actually shutdown. Call the callback function only when
   // these operations are actually complete.
-  	try {
+  try {
 		app.close();
 		console.log(server_prefix + " - Shutdown app successful.");
 	}
 	catch(ex) {
 		console.log(server_prefix + " - Shutdown app failed.");
 	}
-  	try {
+  try {
 		api.close();
 		console.log(server_prefix + " - Shutdown api successful.");
 	}
@@ -168,7 +168,8 @@ else {
  * check with
  * echo %NODE_ENV%
  */
-api.configure('development', function(){
+ var env = process.env.NODE_ENV || 'development';
+ if('development' == env) {
 	api.set('view engine', 'ejs');
     api.set('view options', { layout: true });
 	api.set('views', __dirname + '/../public');
@@ -186,7 +187,7 @@ api.configure('development', function(){
 	//  api.use(allowCrossDomain);
 	api.use(api.router);
 	api.use(express.errorHandler({ dumpExceptions: true, showStack: true })); // specific for development
-});
+};
 
 /*
  * API PRODUCTION
@@ -202,7 +203,8 @@ api.configure('development', function(){
  * check with
  * echo %NODE_ENV%
  */
-api.configure('production', function(){
+ var env = process.env.NODE_ENV || 'production';
+ if('production' == env) {
 	api.set('view engine', 'ejs');
     api.set('view options', { layout: true });
 	api.set('views', __dirname + '/../public');
@@ -220,7 +222,7 @@ api.configure('production', function(){
 	//  api.use(allowCrossDomain);
 	api.use(api.router);
 	api.use(express.errorHandler({ dumpExceptions: true, showStack: true })); // specific for production
-});
+};
 
 api.all('*', function(req, res, next){
   if (!req.get('Origin')) return next();
@@ -252,7 +254,8 @@ api.post('/login', function(req, res){
  * check with
  * echo %NODE_ENV%
  */
-app.configure('development', function(){
+ var env = process.env.NODE_ENV || 'development';
+ if('development' == env) {
 	//app.set('port', process.env.PORT || 5000);
 	app.set('view engine', 'ejs');
     app.set('view options', { layout: true });
@@ -275,7 +278,7 @@ app.configure('development', function(){
     app.use('/app', express.static(__dirname + '/../public/app'));
     app.use(express.static(__dirname + '/../public')); // Fall back to this as a last resort
 	app.use(express.errorHandler({ dumpExceptions: true, showStack: true })); // specific for development
-});
+};
 
 
 
