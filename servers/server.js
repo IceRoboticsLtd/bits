@@ -13,11 +13,29 @@ DELETE	/services/5069b47aa892630aae000001	Delete the service with the specified 
  * Module dependencies.
  */
 var express = require('express'),
-  http = require('http'),
-  path = require('path'),
-  device  = require('../lib/device.js'),
-  redirect = require('express-redirect');
-
+	path = require('path'),
+	mime = require('mime'),
+	fs = require('fs'),
+	url = require('url'),
+	http = require('http'),
+	cors = require('cors'),
+	runner = require('child_process'),
+	morgan = require('morgan'),
+	partials = require('express-partials'),
+	device  = require('../lib/device.js'),
+	hash = require('../lib/pass.js').hash,
+	redirect = require('express-redirect'),
+	bodyParser = require('body-parser'),
+	cookieParser = require('cookie-parser'),
+	i18n = require('i18n-2'),
+	methodOverride = require('method-override'),
+	errorHandler = require('errorhandler'),
+	sass = require('node-sass'),
+	sassMiddleware = require('node-sass-middleware'),
+	session = require('express-session'),
+	passport = require('passport'),
+	LocalStrategy = require('passport-local').Strategy,
+	FacebookStrategy = require('passport-facebook').Strategy;
 /*
  * CONFIGS - The Configurations
  */
