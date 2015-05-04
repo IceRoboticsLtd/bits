@@ -5,7 +5,7 @@ module.exports = function(req, res, next) {
     var _Router = {};  
     config = require('../configs/server.js');
     var configs = config.configs,
-        server_prefix = configs.server_prefix || 'CHAT';
+        server_prefix = configs.server_prefix || 'BITS';
     console.log(server_prefix + " - Router router required.");
     _Router.admin = require('./admin.js');
     _Router.index = require('./index.js');

@@ -5,7 +5,7 @@ module.exports = function(req, res, next) {
 	var _Admin = {};
 	config = require('../configs/server.js');
 	var configs = config.configs,
-	    server_prefix = configs.server_prefix || 'CHAT';
+	    server_prefix = configs.server_prefix || 'BITS';
 	console.log(server_prefix + " - Admin router required.");
 	var express = require('express'),
 	 	redirect = require('express-redirect'),
