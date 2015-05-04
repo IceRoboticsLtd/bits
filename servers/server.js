@@ -1,59 +1,64 @@
-/*
-The full REST API for this application consists of the following methods:
-
-Method	URL	Action
-GET	/services	Retrieve all services
-GET	/services/5069b47aa892630aae000001	Retrieve the service with the specified _id
-POST	/services	Add a new service
-PUT	/services/5069b47aa892630aae000001	Update service with the specified _id
-DELETE	/services/5069b47aa892630aae000001	Delete the service with the specified _id
+/* BITS (default port 7xxx)
+* The full REST API for this application consists of the following methods:
+*
+* Method	URL	Action
+* GET	/services	Retrieve all services
+* GET	/services/5069b47aa892630aae000001	Retrieve the service with the specified _id
+* POST	/services	Add a new service
+* PUT	/services/5069b47aa892630aae000001	Update service with the specified _id
+* DELETE	/services/5069b47aa892630aae000001	Delete the service with the specified _id
 */
-
 /**
- * Module dependencies.
- */
+* Module dependencies.
+*/
 var express = require('express'),
-	path = require('path'),
-	mime = require('mime'),
-	fs = require('fs'),
-	url = require('url'),
-	http = require('http'),
-	cors = require('cors'),
-	runner = require('child_process'),
-	morgan = require('morgan'),
-	partials = require('express-partials'),
-	device  = require('../lib/device.js'),
-	hash = require('../lib/pass.js').hash,
-	redirect = require('express-redirect'),
-	bodyParser = require('body-parser'),
-	cookieParser = require('cookie-parser'),
-	i18n = require('i18n-2'),
-	methodOverride = require('method-override'),
-	errorHandler = require('errorhandler'),
-	sass = require('node-sass'),
-	sassMiddleware = require('node-sass-middleware'),
-	session = require('express-session'),
-	passport = require('passport'),
-	LocalStrategy = require('passport-local').Strategy,
-	FacebookStrategy = require('passport-facebook').Strategy;
+path = require('path'),
+mime = require('mime'),
+fs = require('fs'),
+url = require('url'),
+http = require('http'),
+cors = require('cors'),
+runner = require('child_process'),
+morgan = require('morgan'),
+partials = require('express-partials'),
+device = require('../lib/device.js'),
+hash = require('../lib/pass.js').hash,
+redirect = require('express-redirect'),
+bodyParser = require('body-parser'),
+cookieParser = require('cookie-parser'),
+i18n = require('i18n-2'),
+methodOverride = require('method-override'),
+errorHandler = require('errorhandler'),
+sass = require('node-sass'),
+sassMiddleware = require('node-sass-middleware'),
+session = require('express-session'),
+passport = require('passport'),
+LocalStrategy = require('passport-local').Strategy,
+FacebookStrategy = require('passport-facebook').Strategy;
 /*
- * CONFIGS - The Configurations
- */
+* CONFIGS - The Configurations
+*/
 var config = require('../configs/server.js');
-var configs = config.configs,
-	server_prefix = configs.server_prefix || 'BITS';
-
+var configs = config.configs;
+var server_prefix = configs.server_prefix || 'BITS';
 /*
- * SERVICES - The Services
- */
+* ROUTER - The Router
+*/
+var router = require('../routers/router.js');
+/*
+* ROUTES - The Routes
+*/
+var routes = require('../routes'); // it seems that we have to start each required file as its own var
+/*
+* SERVICES - The Services
+*/
 var services = require('../routes/services'); // it seems that we have to start each required file as its own var
 var mqlService = require('../services/mql');
 var testService = require('../services/test');
-
 /*
- * SERVER - The Server used for shutdown etc
- * See: https://www.exratione.com/2011/07/running-a-nodejs-server-as-a-service-using-forever/
- */
+* SERVER - The Server used for shutdown etc
+* See: https://www.exratione.com/2011/07/running-a-nodejs-server-as-a-service-using-forever/
+*/
 var server = express();
 // Port
 if(typeof configs.server_port === 'undefined'){
@@ -68,48 +73,48 @@ console.log(server_prefix + " - Express server listening on port %d", server_por
 console.log(server_prefix + " - To shutdown server gracefully type: node prepareForStop.js");
 
 server.get('/prepareForShutdown', function(req, res) {
-  if(req.connection.remoteAddress == "127.0.0.1"
-    || req.socket.remoteAddress == "127.0.0.1"
-    // 0.4.7 oddity in https only
-    || req.connection.socket.remoteAddress == "127.0.0.1")
-  {
-    managePreparationForShutdown(function() {
-      // don't complete the connection until the preparation is done.
-      res.statusCode = 200;
-      res.end();
-    });
-  }
-  else {
-    res.statusCode = 500;
-    res.end();
-  }
+	if(req.connection.remoteAddress == "127.0.0.1"
+			|| req.socket.remoteAddress == "127.0.0.1"
+			// 0.4.7 oddity in https only
+			|| req.connection.socket.remoteAddress == "127.0.0.1")
+	{
+		managePreparationForShutdown(function() {
+			// don't complete the connection until the preparation is done.
+			res.statusCode = 200;
+			res.end();
+		});
+	}
+	else {
+		res.statusCode = 500;
+		res.end();
+	}
 });
-
+// Manage prepare for shutdown
 var managePreparationForShutdown = function(callback) {
-  // perform all the cleanup and other operations needed prior to shutdown,
-  // but do not actually shutdown. Call the callback function only when
-  // these operations are actually complete.
-  try {
+	// perform all the cleanup and other operations needed prior to shutdown,
+	// but do not actually shutdown. Call the callback function only when
+	// these operations are actually complete.
+	try {
 		app.close();
 		console.log(server_prefix + " - Shutdown app successful.");
 	}
 	catch(ex) {
 		console.log(server_prefix + " - Shutdown app failed.");
 	}
-  try {
+	try {
 		api.close();
 		console.log(server_prefix + " - Shutdown api successful.");
 	}
 	catch(ex) {
 		console.log(server_prefix + " - Shutdown api failed.");
 	}
-  console.log(server_prefix + " - All preparations for shutdown completed.");
-  callback();
+	console.log(server_prefix + " - All preparations for shutdown completed.");
+	callback();
 };
 
 /*
- * APP - The Application
- */
+* APP - The Application
+*/
 var app = express();
 // Port
 if(typeof configs.app_port === 'undefined'){
@@ -140,8 +145,8 @@ else {
 	var app_list = configs.app_list;
 }
 /*
- * API- The Application Programming Interface
- */
+* API- The Application Programming Interface
+*/
 var api = express();
 // Port
 if(typeof configs.api_port === 'undefined'){
@@ -173,23 +178,23 @@ else {
 }
 
 /*
- * API DEVELOPMENT
- *
- * .bash_profile contains
- * NODE_ENV=development
- *
- * or start server as follows
- * NODE_ENV=development node server.js
- *
- * on Windows use
- * set NODE_ENV=development
- * check with
- * echo %NODE_ENV%
- */
- var env = process.env.NODE_ENV || 'development';
- if('development' == env) {
+* API DEVELOPMENT
+*
+* .bash_profile contains
+* NODE_ENV=development
+*
+* or start server as follows
+* NODE_ENV=development node server.js
+*
+* on Windows use
+* set NODE_ENV=development
+* check with
+* echo %NODE_ENV%
+*/
+var env = process.env.NODE_ENV || 'development';
+if('development' == env) {
 	api.set('view engine', 'ejs');
-    api.set('view options', { layout: true });
+	api.set('view options', { layout: true });
 	api.set('views', __dirname + '/../public');
 	api.use(express.favicon());
 	api.use(express.logger('dev'));
@@ -200,31 +205,31 @@ else {
 	api.use(express.json()); // NEW IN CONNECT 3.0
 
 	api.use(express.methodOverride());
-    api.use(express.cookieParser());
-    api.use(device.capture());
+	api.use(express.cookieParser());
+	api.use(device.capture());
 	//  api.use(allowCrossDomain);
 	api.use(api.router);
 	api.use(express.errorHandler({ dumpExceptions: true, showStack: true })); // specific for development
 };
 
 /*
- * API PRODUCTION
- *
- * .bash_profile contains
- * NODE_ENV=production
- *
- * or start server as follows
- * NODE_ENV=production node server.js
- *
- * on Windows use
- * set NODE_ENV=production
- * check with
- * echo %NODE_ENV%
- */
- var env = process.env.NODE_ENV || 'production';
- if('production' == env) {
+* API PRODUCTION
+*
+* .bash_profile contains
+* NODE_ENV=production
+*
+* or start server as follows
+* NODE_ENV=production node server.js
+*
+* on Windows use
+* set NODE_ENV=production
+* check with
+* echo %NODE_ENV%
+*/
+var env = process.env.NODE_ENV || 'production';
+if('production' == env) {
 	api.set('view engine', 'ejs');
-    api.set('view options', { layout: true });
+	api.set('view options', { layout: true });
 	api.set('views', __dirname + '/../public');
 	api.use(express.favicon());
 	api.use(express.logger('dev'));
@@ -235,48 +240,48 @@ else {
 	api.use(express.json()); // NEW IN CONNECT 3.0
 
 	api.use(express.methodOverride());
-    api.use(express.cookieParser());
-    api.use(device.capture());
+	api.use(express.cookieParser());
+	api.use(device.capture());
 	//  api.use(allowCrossDomain);
 	api.use(api.router);
 	api.use(express.errorHandler({ dumpExceptions: true, showStack: true })); // specific for production
 };
 
 api.all('*', function(req, res, next){
-  if (!req.get('Origin')) return next();
-  // use "*" here to accept any origin
-  res.set('Access-Control-Allow-Origin', '*');  // Accepts requests coming from anyone, replace '*' by configs.allowedHosts to restrict it
-  res.set('Access-Control-Allow-Methods', 'GET, PUT, POST');
-  res.set('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type');
-  // res.set('Access-Control-Allow-Max-Age', 3600);
-  if ('OPTIONS' == req.method) return res.send(200);
-  next();
+	if (!req.get('Origin')) return next();
+	// use "*" here to accept any origin
+	res.set('Access-Control-Allow-Origin', '*');  // Accepts requests coming from anyone, replace '*' by configs.allowedHosts to restrict it
+	res.set('Access-Control-Allow-Methods', 'GET, PUT, POST');
+	res.set('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type');
+	// res.set('Access-Control-Allow-Max-Age', 3600);
+	if ('OPTIONS' == req.method) return res.send(200);
+	next();
 });
 
 api.post('/login', function(req, res){
-  console.log(req.body);
-  res.send(201);
+	console.log(req.body);
+	res.send(201);
 });
 
 /*
- * APP DEVELOPMENT
- *
- * .bash_profile contains
- * NODE_ENV=development
- *
- * or start server as follows
- * NODE_ENV=development node server.js
- *
- * on Windows use
- * set NODE_ENV=development
- * check with
- * echo %NODE_ENV%
- */
- var env = process.env.NODE_ENV || 'development';
- if('development' == env) {
+* APP DEVELOPMENT
+*
+* .bash_profile contains
+* NODE_ENV=development
+*
+* or start server as follows
+* NODE_ENV=development node server.js
+*
+* on Windows use
+* set NODE_ENV=development
+* check with
+* echo %NODE_ENV%
+*/
+var env = process.env.NODE_ENV || 'development';
+if('development' == env) {
 	//app.set('port', process.env.PORT || 5000);
 	app.set('view engine', 'ejs');
-    app.set('view options', { layout: true });
+	app.set('view options', { layout: true });
 	app.set('views', __dirname + '/../public');
 
 	app.use(express.favicon());
@@ -288,13 +293,13 @@ api.post('/login', function(req, res){
 	app.use(express.json()); // NEW IN CONNECT 3.0
 
 	app.use(express.methodOverride());
-    app.use(express.cookieParser());
-    app.use(device.capture());
+	app.use(express.cookieParser());
+	app.use(device.capture());
 	//  app.use(allowCrossDomain);
 	app.use(app.router);
-    app.use('/resources', express.static(__dirname + '/../public/resources'));
-    app.use('/app', express.static(__dirname + '/../public/app'));
-    app.use(express.static(__dirname + '/../public')); // Fall back to this as a last resort
+	app.use('/resources', express.static(__dirname + '/../public/resources'));
+	app.use('/app', express.static(__dirname + '/../public/app'));
+	app.use(express.static(__dirname + '/../public')); // Fall back to this as a last resort
 	app.use(express.errorHandler({ dumpExceptions: true, showStack: true })); // specific for development
 };
 
