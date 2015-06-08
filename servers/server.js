@@ -201,8 +201,10 @@ if('development' == env) {
 
 	// https://github.com/senchalabs/connect/wiki/Connect-3.0
 	//api.use(express.bodyParser()); // DEPRECATED
-	api.use(express.urlencoded()); // NEW IN CONNECT 3.0
-	api.use(express.json()); // NEW IN CONNECT 3.0
+	api.use(bodyParser.urlencoded({
+  	extended: true
+	})); // NEW IN CONNECT 3.0
+	api.use(bodyParser.json()); // NEW IN CONNECT 3.0
 
 	api.use(express.methodOverride());
 	api.use(express.cookieParser());
@@ -236,8 +238,10 @@ if('production' == env) {
 
 	// https://github.com/senchalabs/connect/wiki/Connect-3.0
 	//api.use(express.bodyParser()); // DEPRECATED
-	api.use(express.urlencoded()); // NEW IN CONNECT 3.0
-	api.use(express.json()); // NEW IN CONNECT 3.0
+	api.use(bodyParser.urlencoded({
+  	extended: true
+	})); // NEW IN CONNECT 3.0
+	api.use(bodyParser.json()); // NEW IN CONNECT 3.0
 
 	api.use(express.methodOverride());
 	api.use(express.cookieParser());
@@ -289,9 +293,11 @@ if('development' == env) {
 
 	// https://github.com/senchalabs/connect/wiki/Connect-3.0
 	//app.use(express.bodyParser()); // DEPRECATED
-	app.use(express.urlencoded()); // NEW IN CONNECT 3.0
-	app.use(express.json()); // NEW IN CONNECT 3.0
-
+	app.use(bodyParser.urlencoded({
+  	extended: true
+	})); // NEW IN CONNECT 3.0
+	app.use(bodyParser.json()); // NEW IN CONNECT 3.0
+	
 	app.use(express.methodOverride());
 	app.use(express.cookieParser());
 	app.use(device.capture());
