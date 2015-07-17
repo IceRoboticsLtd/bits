@@ -48,7 +48,7 @@
     "i18n-2": ">=0.4.6",
     "mime": ">=1.2.11",
     "mysql": ">=2.5.4",
-    "tacit-server": "^1.0.1"
+    "tacit-server": "^1.0.8007"
   },
   "devDependencies": {
     "grunt-contrib-uglify": "0.1.1",
@@ -70,7 +70,8 @@
     "istanbul": ">=0.1.46"
   },
   "scripts": {
-    "start": "node servers/server",    
+	"preinstall": "sudo npm install -g strongloop",
+    "start": "node servers/server",
     "test": "mocha"
   },
   "repository": "git://github.com/iceroboticsltd/bits"
